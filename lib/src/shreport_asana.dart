@@ -3,9 +3,11 @@ import 'dart:io';
 
 import 'package:feedback/feedback.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/http.dart';
 import 'package:http_parser/http_parser.dart';
+import 'package:shreport/src/feedback_utils.dart';
 import 'package:shreport/src/issue_tracker_config.dart';
 
 
@@ -35,13 +37,15 @@ extension BetterFeedbackX on FeedbackController {
   /// See https://docs.gitlab.com/ee/user/project/settings/project_access_tokens.html#limiting-scopes-of-a-project-access-token
   void showAndUploadToAsana({
     required AsanaIssueTracker issueTracker,
+    BuildContext? context,
     http.Client? client,
   }) {
-    show(uploadToAsana(
+    final callback = uploadToAsana(
       domainName: issueTracker.workspaceId,
       apiToken: issueTracker.accessToken,
       client: client,
-    ));
+    );
+    show(context != null ? withLoadingDialog(context, callback) : callback);
   }
 }
 

@@ -3,13 +3,20 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shake_detector/shake_detector.dart';
 import 'package:shreport/src/issue_tracker_config.dart';
+import 'package:shreport/src/reporter_info.dart';
 import 'package:shreport/src/shreport_jira.dart';
 
 class ShakeFeedback extends StatefulWidget {
   final Widget child;
   final IssueTrackerConfig issueTrackerConfig;
+  final ReporterInfo? reporterInfo;
 
-  const ShakeFeedback({Key? key, required this.child, required this.issueTrackerConfig}) : super(key: key);
+  const ShakeFeedback({
+    Key? key,
+    required this.child,
+    required this.issueTrackerConfig,
+    this.reporterInfo,
+  }) : super(key: key);
 
   @override
   _ShreportFeedbackState createState() => _ShreportFeedbackState();
@@ -27,6 +34,8 @@ class _ShreportFeedbackState extends State<ShakeFeedback> {
           case JiraIssueTracker:
             BetterFeedback.of(context).showAndUploadToJira(
               issueTracker: widget.issueTrackerConfig as JiraIssueTracker,
+              context: context,
+              reporterInfo: widget.reporterInfo,
             );
             break;
           case GitlabIssueTracker:

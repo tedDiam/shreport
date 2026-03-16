@@ -3,10 +3,13 @@ import 'dart:io';
 
 import 'package:feedback/feedback.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/http.dart';
 import 'package:http_parser/http_parser.dart';
+import 'package:shreport/src/feedback_utils.dart';
 import 'package:shreport/src/issue_tracker_config.dart';
+import 'package:shreport/src/reporter_info.dart';
 
 /// This file is from:
 /// https://github.com/encalv/feedback_jira/blob/main/lib/src/feedback_jira.dart
@@ -34,14 +37,18 @@ extension BetterFeedbackX on FeedbackController {
   /// See https://docs.gitlab.com/ee/user/project/settings/project_access_tokens.html#limiting-scopes-of-a-project-access-token
   void showAndUploadToJira({
     required JiraIssueTracker issueTracker,
+    BuildContext? context,
+    ReporterInfo? reporterInfo,
     http.Client? client,
   }) {
-    show(uploadToJira(
+    final callback = uploadToJira(
       domainName: issueTracker.domainName,
       apiToken: issueTracker.apiToken,
       client: client,
-      projectKey: issueTracker.projectKey
-    ));
+      projectKey: issueTracker.projectKey,
+      reporterInfo: reporterInfo,
+    );
+    show(context != null ? withLoadingDialog(context, callback) : callback);
   }
 
 
@@ -56,19 +63,25 @@ OnFeedbackCallback uploadToJira({
   required String projectKey,
   String? gitlabUrl,
   Map<String, dynamic>? customBody,
+  ReporterInfo? reporterInfo,
   http.Client? client,
 }) {
   final httpClient = client ?? http.Client();
   final baseUrl = '$domainName.atlassian.net';
 
   return (UserFeedback feedback) async {
+    final descriptionContent = _buildAdfDescription(
+      feedbackText: feedback.text,
+      reporterInfo: reporterInfo,
+    );
 
     final body = customBody ??
         {
           "fields": {
             "project": {"key": projectKey},
             "summary": feedback.text,
-            "issuetype": {"name": "Bug"}
+            "issuetype": {"name": "Bug"},
+            "description": descriptionContent,
           }
         };
     final issueUri = Uri.https(baseUrl, '/rest/api/3/issue');
@@ -119,5 +132,43 @@ OnFeedbackCallback uploadToJira({
     } catch (e) {
       rethrow;
     }
+  };
+}
+
+/// Builds an Atlassian Document Format (ADF) description body that includes
+/// the reporter's identity (if provided) followed by the feedback text.
+Map<String, dynamic> _buildAdfDescription({
+  required String feedbackText,
+  ReporterInfo? reporterInfo,
+}) {
+  final paragraphs = <Map<String, dynamic>>[];
+
+  if (reporterInfo?.label != null) {
+    paragraphs.add({
+      'type': 'paragraph',
+      'content': [
+        {
+          'type': 'text',
+          'text': 'Reporter: ',
+          'marks': [
+            {'type': 'strong'}
+          ],
+        },
+        {'type': 'text', 'text': reporterInfo!.label!},
+      ],
+    });
+  }
+
+  paragraphs.add({
+    'type': 'paragraph',
+    'content': [
+      {'type': 'text', 'text': feedbackText},
+    ],
+  });
+
+  return {
+    'type': 'doc',
+    'version': 1,
+    'content': paragraphs,
   };
 }
