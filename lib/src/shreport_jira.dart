@@ -85,52 +85,37 @@ OnFeedbackCallback uploadToJira({
           }
         };
     final issueUri = Uri.https(baseUrl, '/rest/api/3/issue');
-
-    print('issueUri: $issueUri');
-
     final username = 'serge.diame@paynah.com';
     final credentials = base64Encode(utf8.encode('$username:$apiToken'));
 
-    try {
-      final response = await httpClient.post(
-        issueUri,
-        body: jsonEncode(body),
-        headers: {
-          HttpHeaders.contentTypeHeader: 'application/json',
-          //HttpHeaders.authorizationHeader: 'Basic $apiToken',
-          HttpHeaders.authorizationHeader: 'Basic $credentials',
-        },
-      );
-      final int statusCode = response.statusCode;
+    final response = await httpClient.post(
+      issueUri,
+      body: jsonEncode(body),
+      headers: {
+        HttpHeaders.contentTypeHeader: 'application/json',
+        HttpHeaders.authorizationHeader: 'Basic $credentials',
+      },
+    );
+    final int statusCode = response.statusCode;
 
-      print('statusCode: $statusCode');
-      if (statusCode >= 200 && statusCode < 400) {
-        print('response.body: ${response.body}');
-        final resp = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-        final ticketId = resp['id'] as String;
+    if (statusCode >= 200 && statusCode < 400) {
+      final resp = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      final ticketId = resp['id'] as String;
 
-        try {
-          final attachmentsUri = Uri.https(baseUrl, '/rest/api/3/issue/$ticketId/attachments');
-          final request = MultipartRequest('POST', attachmentsUri);
-          request.headers['X-Atlassian-Token'] = 'no-check';
-          request.headers['Accept'] = 'application/json';
-          request.headers['Authorization'] = 'Basic $credentials';
-          final httpImage = MultipartFile.fromBytes(
-            'file',
-            feedback.screenshot,
-            filename: 'screenshot.png',
-            contentType: MediaType('image', 'png'),
-          );
-          request.files.add(httpImage);
-          await request.send();
-        } catch (e) {
-          rethrow;
-        }
-      } else {
-        throw HttpException('Erreur $statusCode');
-      }
-    } catch (e) {
-      rethrow;
+      final attachmentsUri = Uri.https(baseUrl, '/rest/api/3/issue/$ticketId/attachments');
+      final request = MultipartRequest('POST', attachmentsUri);
+      request.headers['X-Atlassian-Token'] = 'no-check';
+      request.headers['Accept'] = 'application/json';
+      request.headers['Authorization'] = 'Basic $credentials';
+      request.files.add(MultipartFile.fromBytes(
+        'file',
+        feedback.screenshot,
+        filename: 'screenshot.png',
+        contentType: MediaType('image', 'png'),
+      ));
+      await request.send();
+    } else {
+      throw HttpException('$statusCode');
     }
   };
 }
